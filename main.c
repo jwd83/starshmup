@@ -9,10 +9,13 @@ extern char tilfont, palfont;
 #define SCREEN_W 256
 #define SCREEN_H 224
 
-// VRAM layout (chosen to avoid common console/font locations)
-#define BG2_TILE_BASE 0x6000
-#define BG2_MAP_BASE 0x7000
-#define SPR_TILE_BASE 0x4000
+// VRAM layout
+// Text: tiles at 0x3000, map at 0x6800 (from consoleInitText)
+// BG2 grid: tiles at 0x4000, map at 0x5000
+// Sprites: tiles at 0x8000
+#define BG2_TILE_BASE 0x4000
+#define BG2_MAP_BASE  0x5000
+#define SPR_TILE_BASE 0x8000
 
 // BG palette #1 starts at color index 16
 #define BG_PAL1_CGRAM_BYTE_OFFSET (16 * 2)
@@ -105,10 +108,8 @@ static void init_grid_bg2(void) {
     build_grid_map(map32x32);
     dmaCopyVram((u8*)map32x32, BG2_MAP_BASE, sizeof(map32x32));
 
-    REG_BGMODE = 1;  // Mode 1: BG1/BG2 4bpp, BG3 2bpp
-    REG_BG12NBA = (u8)(((BG2_TILE_BASE / 0x1000) & 0x0F) << 4);
     REG_BG2SC = (u8)(((BG2_MAP_BASE >> 10) & 0x3F) << 2);
-    REG_TM = 0x16;  // Enable BG2 + BG3 + OBJ
+    // Note: video mode and REG_TM set later after text init
 }
 
 static void init_sprites(void) {
@@ -181,27 +182,33 @@ int main(void) {
     s16 bullet_cx, bullet_cy, enemy_cx, enemy_cy;  // centers for collision
 
     consoleInit();
-    REG_INIDISP = 0x80;  // Force blank during setup
 
-    // Initialize text system (BG1)
-    consoleSetTextMapPtr(0x0800);
+    // Initialize text system (BG1) - tiles at 0x3000, map at 0x6800
+    consoleSetTextMapPtr(0x6800);
     consoleSetTextGfxPtr(0x3000);
+    consoleSetTextOffset(0x0100);
     consoleInitText(0, 16 * 2, &tilfont, &palfont);
-    bgSetGfxPtr(0, 0x3000);
-    bgSetMapPtr(0, 0x0800, SC_32x32);
+
+    // BG1 setup for text
+    bgSetGfxPtr(0, 0x2000);
+    bgSetMapPtr(0, 0x6800, SC_32x32);
 
     // Initialize grid background (BG2) and sprites
     init_grid_bg2();
     init_sprites();
     oamInitGfxAttr(SPR_TILE_BASE, OBJ_SIZE8_L16);
 
-    // Set video mode and enable layers: BG1 (text) + BG2 (grid) + OBJ (sprites)
-    setMode(BG_MODE1, 0);
-    bgSetEnable(0);  // BG1 for text
-    bgSetEnable(1);  // BG2 for grid
+    // BG2: grid - tiles at 0x6000, map at 0x7000
+    bgSetGfxPtr(1, BG2_TILE_BASE);
+    bgSetMapPtr(1, BG2_MAP_BASE, SC_32x32);
 
-    setScreenOn();
-    REG_INIDISP = 0x0F;  // Screen on, max brightness
+    // Configure video mode - enable BG1 (text) and BG2 (grid)
+    setMode(BG_MODE1, 0);
+    bgSetEnable(0);
+    bgSetEnable(1);
+
+    // Screen on
+    setBrightness(0xF);
 
     reset_player(&player_x, &player_y);
     spawn_enemy(&enemy_x, &enemy_y);
