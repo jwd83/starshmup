@@ -60,6 +60,7 @@ static s16 iabs_s16(s16 v) {
 static void u16_to_dec(u16 v, char* out) {
     char tmp[6];
     u8 n = 0;
+    u8 i;
 
     if (v == 0) {
         out[0] = '0';
@@ -72,7 +73,7 @@ static void u16_to_dec(u16 v, char* out) {
         v /= 10;
     }
 
-    for (u8 i = 0; i < n; i++) {
+    for (i = 0; i < n; i++) {
         out[i] = tmp[n - 1 - i];
     }
     out[n] = '\0';
@@ -81,10 +82,12 @@ static void u16_to_dec(u16 v, char* out) {
 // Build 32x32 tilemap: major lines every 4 tiles, minor elsewhere
 static void build_grid_map(u16* map32x32) {
     const u16 pal_bits = BG_MAP_PAL(1);
+    u16 x, y;
+    u8 is_major;
 
-    for (u16 y = 0; y < 32; y++) {
-        for (u16 x = 0; x < 32; x++) {
-            u8 is_major = ((x & 3) == 0) || ((y & 3) == 0);
+    for (y = 0; y < 32; y++) {
+        for (x = 0; x < 32; x++) {
+            is_major = ((x & 3) == 0) || ((y & 3) == 0);
             map32x32[y * 32 + x] = (is_major ? 1 : 0) | pal_bits;
         }
     }
@@ -144,7 +147,8 @@ static void spawn_enemy(s16* ex, s16* ey) {
 }
 
 static void clear_bullets(Bullet* bullets) {
-    for (u8 i = 0; i < MAX_BULLETS; i++) {
+    u8 i;
+    for (i = 0; i < MAX_BULLETS; i++) {
         bullets[i].active = 0;
     }
 }
@@ -155,6 +159,21 @@ static void reset_player(s16* px, s16* py) {
 }
 
 int main(void) {
+    s16 player_x, player_y;
+    s16 enemy_x, enemy_y;
+    Bullet bullets[MAX_BULLETS];
+    s8 aim_dx = 0;
+    s8 aim_dy = -1;  // Default aim: up
+    u16 score = 0;
+    char score_buf[16];
+    u16 frame = 0;
+    u16 scroll_x = 0;
+    u16 scroll_y = 0;
+    u16 pad;
+    s8 move_dx, move_dy;
+    u8 i, obj, off_screen;
+    s16 dx, dy;
+
     consoleInit();
     REG_INIDISP = 0x80;  // Force blank during setup
     init_grid_bg2();
@@ -164,32 +183,17 @@ int main(void) {
     consoleDrawText(2, 1, "starshmup");
     consoleDrawText(2, 2, "dpad move, autofire");
 
-    s16 player_x, player_y;
     reset_player(&player_x, &player_y);
-
-    s16 enemy_x, enemy_y;
     spawn_enemy(&enemy_x, &enemy_y);
-
-    Bullet bullets[MAX_BULLETS];
     clear_bullets(bullets);
-
-    s8 aim_dx = 0;
-    s8 aim_dy = -1;  // Default aim: up
-
-    u16 score = 0;
-    char score_buf[16];
-    u16 frame = 0;
-    u16 scroll_x = 0;
-    u16 scroll_y = 0;
 
     while (1) {
         WaitForVBlank();
-        scanPads();
-        u16 pad = padsCurrent(0);
+        pad = padsCurrent(0);
 
         // Read d-pad input
-        s8 move_dx = 0;
-        s8 move_dy = 0;
+        move_dx = 0;
+        move_dy = 0;
         if (pad & KEY_LEFT) move_dx = -1;
         else if (pad & KEY_RIGHT) move_dx = 1;
         if (pad & KEY_UP) move_dy = -1;
@@ -209,7 +213,7 @@ int main(void) {
 
         // Autofire
         if ((frame % AUTOFIRE_INTERVAL) == 0) {
-            for (u8 i = 0; i < MAX_BULLETS; i++) {
+            for (i = 0; i < MAX_BULLETS; i++) {
                 if (!bullets[i].active) {
                     bullets[i].active = 1;
                     bullets[i].x = player_x + (SPRITE_SIZE / 2) - (BULLET_SIZE / 2);
@@ -222,17 +226,17 @@ int main(void) {
         }
 
         // Update bullets
-        for (u8 i = 0; i < MAX_BULLETS; i++) {
+        for (i = 0; i < MAX_BULLETS; i++) {
             if (!bullets[i].active) continue;
 
             bullets[i].x += bullets[i].vx;
             bullets[i].y += bullets[i].vy;
 
             // Remove if off-screen
-            u8 off_screen = bullets[i].x < -BULLET_SIZE ||
-                            bullets[i].x > SCREEN_W + BULLET_SIZE ||
-                            bullets[i].y < -BULLET_SIZE ||
-                            bullets[i].y > SCREEN_H + BULLET_SIZE;
+            off_screen = bullets[i].x < -BULLET_SIZE ||
+                         bullets[i].x > SCREEN_W + BULLET_SIZE ||
+                         bullets[i].y < -BULLET_SIZE ||
+                         bullets[i].y > SCREEN_H + BULLET_SIZE;
             if (off_screen) {
                 bullets[i].active = 0;
             }
@@ -245,11 +249,11 @@ int main(void) {
         else if (enemy_y > player_y) enemy_y -= ENEMY_SPEED;
 
         // Bullet-enemy collision
-        for (u8 i = 0; i < MAX_BULLETS; i++) {
+        for (i = 0; i < MAX_BULLETS; i++) {
             if (!bullets[i].active) continue;
 
-            s16 dx = iabs_s16(bullets[i].x - enemy_x);
-            s16 dy = iabs_s16(bullets[i].y - enemy_y);
+            dx = iabs_s16(bullets[i].x - enemy_x);
+            dy = iabs_s16(bullets[i].y - enemy_y);
             if (dx < BULLET_COLLISION_RADIUS && dy < BULLET_COLLISION_RADIUS) {
                 bullets[i].active = 0;
                 score++;
@@ -259,8 +263,8 @@ int main(void) {
         }
 
         // Player-enemy collision: reset game
-        s16 dx = iabs_s16(player_x - enemy_x);
-        s16 dy = iabs_s16(player_y - enemy_y);
+        dx = iabs_s16(player_x - enemy_x);
+        dy = iabs_s16(player_y - enemy_y);
         if (dx < PLAYER_COLLISION_RADIUS && dy < PLAYER_COLLISION_RADIUS) {
             score = 0;
             reset_player(&player_x, &player_y);
@@ -291,8 +295,8 @@ int main(void) {
         oamSetEx(1, OBJ_LARGE, OBJ_SHOW);
 
         // Draw bullets (OAM slots 2-9, tile 8, 8x8)
-        for (u8 i = 0; i < MAX_BULLETS; i++) {
-            u8 obj = 2 + i;
+        for (i = 0; i < MAX_BULLETS; i++) {
+            obj = 2 + i;
             if (bullets[i].active) {
                 oamSet(obj, bullets[i].x, bullets[i].y, 1, 0, 0, 8, 0);
                 oamSetEx(obj, OBJ_SMALL, OBJ_SHOW);

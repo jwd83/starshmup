@@ -1,13 +1,18 @@
 *.o
+*.obj
 *.a
 *.elf
 *.map
 *.sym
 *.lst
-*.sfc
 *.smc
 *.swp
 *.swo
+*.ps
+*.asp
+main.asm
+gfx.asm
+linkfile
 .DS_Store
 build/
 

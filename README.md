@@ -1,35 +1,67 @@
 # starshmup (SNES)
 
-Basic shmup prototype for SNES using **pvsneslib**:
+A space shmup prototype for Super Nintendo, built with PVSnesLib.
 
 - D-pad movement
 - Autofire in last-move direction
-- One enemy that homes toward you
-- Bullet/enemy + player/enemy collisions
-- Simple “interstellar graph paper” scrolling background
+- Homing enemy
+- Collision detection
+- Scrolling grid background
 
-## Prereqs
+## Quick Start (macOS)
 
-Install pvsneslib and its toolchain, then set:
+1. Download the latest PVSnesLib release for macOS:
+   https://github.com/alekmaul/pvsneslib/releases
+
+2. Unzip it into the `build/` folder:
+   ```sh
+   mkdir -p build
+   unzip pvsneslib_*_darwin.zip -d build/
+   ```
+
+3. Remove macOS quarantine flags:
+   ```sh
+   xattr -r -d com.apple.quarantine build/pvsneslib
+   ```
+
+4. Build:
+   ```sh
+   ./build.sh
+   ```
+
+The ROM will be at `starshmup.sfc`.
+
+## Build Commands
 
 ```sh
-export PVSNESLIB_HOME="/path/to/pvsneslib"
+./build.sh        # Build the ROM
+./build.sh clean  # Clean build artifacts
+./build.sh debug  # Build with debug symbols
 ```
-
-## Build
-
-```sh
-make clean
-make
-```
-
-Output ROM: `starshmup.sfc`
 
 ## Run
 
-- Open `starshmup.sfc` in an emulator (bsnes/snes9x), or copy to your flash cart.
+Open `starshmup.sfc` in an emulator (bsnes, snes9x, Mesen-S) or flash cart.
 
 ## Controls
 
-- D-pad: move (also sets aim direction)
-- Autofire: always on (fires in the last non-zero move direction; defaults to up)
+- **D-pad**: Move (also sets aim direction)
+- **Autofire**: Always on, fires in last move direction (defaults to up)
+
+## Project Structure
+
+```
+main.c       # Game loop, player/enemy/bullet logic
+gfx.c        # Graphics data (tiles, palettes)
+gfx.h        # Graphics declarations
+hdr.asm      # ROM header
+Makefile     # Build config
+build.sh     # Build script
+```
+
+## Technical Details
+
+- Video Mode 1 (BG1/BG2 4bpp, BG3 2bpp)
+- 16x16 player/enemy sprites, 8x8 bullets
+- Max 8 concurrent bullets
+- 16-bit Galois LFSR for RNG
