@@ -203,8 +203,8 @@ int main(void) {
     consoleSetTextMapPtr(0x6800);
     consoleSetTextGfxPtr(0x3000);
     consoleSetTextOffset(0x0100);
-    // Text palette is 16 colors; passing bytes here would overwrite other BG palettes.
-    consoleInitText(0, 16, &tilfont, &palfont);
+    // PVSnesLib expects palette size in bytes (16 colors * 2 bytes each).
+    consoleInitText(0, 16 * 2, &tilfont, &palfont);
 
     // BG1 setup for text
     bgSetGfxPtr(0, 0x2000);
@@ -348,7 +348,8 @@ int main(void) {
         for (i = 0; i < MAX_BULLETS; i++) {
             obj = (2 + i) * 4;  // Convert slot to byte offset
             if (bullets[i].active) {
-                oamSet(obj, bullets[i].x, bullets[i].y, 1, 0, 0, 8, 0);
+                // Keep projectiles above the opaque BG2 starfield.
+                oamSet(obj, bullets[i].x, bullets[i].y, 2, 0, 0, 8, 0);
                 oamSetEx(obj, OBJ_SMALL, OBJ_SHOW);
             } else {
                 oamSetEx(obj, OBJ_SMALL, OBJ_HIDE);
