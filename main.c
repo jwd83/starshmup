@@ -1,6 +1,7 @@
 #include <snes.h>
 
 #include "gfx.h"
+#include "scenes.h"
 
 // Font from data.asm
 extern char tilfont, palfont;
@@ -176,6 +177,25 @@ static void reset_player(s16* px, s16* py) {
     *py = (SCREEN_H / 2) - (SPRITE_SIZE / 2);
 }
 
+// Hide all sprites (used during title/gameover screens)
+static void hide_all_sprites(void) {
+    u8 i;
+    for (i = 0; i < 10; i++) {
+        oamSetEx(i * 4, OBJ_SMALL, OBJ_HIDE);
+    }
+}
+
+// Reset gameplay state for a new game
+static void reset_gameplay(s16* px, s16* py, s16* ex, s16* ey,
+                           Bullet* bullets, u16* kills, u16* level, u8* enemy_hp) {
+    *kills = 0;
+    *level = 1;
+    reset_player(px, py);
+    spawn_enemy(ex, ey);
+    clear_bullets(bullets);
+    *enemy_hp = *level;
+}
+
 int main(void) {
     s16 player_x, player_y;
     s16 enemy_x, enemy_y;
@@ -191,11 +211,14 @@ int main(void) {
     u16 frame = 0;
     u16 scroll_x = 0;
     u16 scroll_y = 0;
-    u16 pad;
+    u16 pad, prev_pad = 0;
     s8 move_dx, move_dy;
     u8 i, obj, off_screen;
     s16 dx, dy;
     s16 bullet_cx, bullet_cy, enemy_cx, enemy_cy;  // centers for collision
+    Scene current_scene = SCENE_TITLE;
+    Scene next_scene;
+    GameStats stats;
 
     consoleInit();
 
@@ -230,149 +253,191 @@ int main(void) {
     // Screen on
     setBrightness(0xF);
 
-    reset_player(&player_x, &player_y);
-    spawn_enemy(&enemy_x, &enemy_y);
-    clear_bullets(bullets);
-    enemy_hp = level;
+    // Start at title screen
+    hide_all_sprites();
+    scene_title_enter();
 
     while (1) {
         pad = padsCurrent(0);
 
-        // Read d-pad input
-        move_dx = 0;
-        move_dy = 0;
-        if (pad & KEY_LEFT) move_dx = -1;
-        else if (pad & KEY_RIGHT) move_dx = 1;
-        if (pad & KEY_UP) move_dy = -1;
-        else if (pad & KEY_DOWN) move_dy = 1;
+        switch (current_scene) {
+            case SCENE_TITLE:
+                // Only trigger on button press, not hold
+                if ((pad & KEY_START) && !(prev_pad & KEY_START)) {
+                    next_scene = scene_title_update(pad);
+                    if (next_scene == SCENE_GAMEPLAY) {
+                        // Initialize gameplay
+                        reset_gameplay(&player_x, &player_y, &enemy_x, &enemy_y,
+                                       bullets, &kills, &level, &enemy_hp);
+                        aim_dx = 0;
+                        aim_dy = -1;
+                        prev_kills = 0xFFFF;
+                        prev_level = 0xFFFF;
+                        frame = 0;
+                        current_scene = SCENE_GAMEPLAY;
+                    }
+                }
 
-        // Update aim direction when moving
-        if (move_dx || move_dy) {
-            aim_dx = move_dx;
-            aim_dy = move_dy;
-        }
+                // Scroll starfield even on title
+                scroll_x++;
+                if ((frame & 3) == 0) scroll_y++;
+                break;
 
-        // Move player
-        player_x += move_dx * PLAYER_SPEED;
-        player_y += move_dy * PLAYER_SPEED;
-        player_x = clamp_s16(player_x, 0, SCREEN_W - SPRITE_SIZE);
-        player_y = clamp_s16(player_y, 0, SCREEN_H - SPRITE_SIZE);
+            case SCENE_GAMEPLAY:
+                // Read d-pad input
+                move_dx = 0;
+                move_dy = 0;
+                if (pad & KEY_LEFT) move_dx = -1;
+                else if (pad & KEY_RIGHT) move_dx = 1;
+                if (pad & KEY_UP) move_dy = -1;
+                else if (pad & KEY_DOWN) move_dy = 1;
 
-        // Autofire
-        if ((frame % AUTOFIRE_INTERVAL) == 0) {
-            for (i = 0; i < MAX_BULLETS; i++) {
-                if (!bullets[i].active) {
-                    bullets[i].active = 1;
-                    bullets[i].x = player_x + (SPRITE_SIZE / 2) - (BULLET_SIZE / 2);
-                    bullets[i].y = player_y + (SPRITE_SIZE / 2) - (BULLET_SIZE / 2);
-                    bullets[i].vx = aim_dx * BULLET_SPEED;
-                    bullets[i].vy = aim_dy * BULLET_SPEED;
+                // Update aim direction when moving
+                if (move_dx || move_dy) {
+                    aim_dx = move_dx;
+                    aim_dy = move_dy;
+                }
+
+                // Move player
+                player_x += move_dx * PLAYER_SPEED;
+                player_y += move_dy * PLAYER_SPEED;
+                player_x = clamp_s16(player_x, 0, SCREEN_W - SPRITE_SIZE);
+                player_y = clamp_s16(player_y, 0, SCREEN_H - SPRITE_SIZE);
+
+                // Autofire
+                if ((frame % AUTOFIRE_INTERVAL) == 0) {
+                    for (i = 0; i < MAX_BULLETS; i++) {
+                        if (!bullets[i].active) {
+                            bullets[i].active = 1;
+                            bullets[i].x = player_x + (SPRITE_SIZE / 2) - (BULLET_SIZE / 2);
+                            bullets[i].y = player_y + (SPRITE_SIZE / 2) - (BULLET_SIZE / 2);
+                            bullets[i].vx = aim_dx * BULLET_SPEED;
+                            bullets[i].vy = aim_dy * BULLET_SPEED;
+                            break;
+                        }
+                    }
+                }
+
+                // Update bullets
+                for (i = 0; i < MAX_BULLETS; i++) {
+                    if (!bullets[i].active) continue;
+
+                    bullets[i].x += bullets[i].vx;
+                    bullets[i].y += bullets[i].vy;
+
+                    // Remove if off-screen
+                    off_screen = bullets[i].x < -BULLET_SIZE ||
+                                 bullets[i].x > SCREEN_W + BULLET_SIZE ||
+                                 bullets[i].y < -BULLET_SIZE ||
+                                 bullets[i].y > SCREEN_H + BULLET_SIZE;
+                    if (off_screen) {
+                        bullets[i].active = 0;
+                    }
+                }
+
+                // Enemy homing toward player
+                if (enemy_x < player_x) enemy_x += ENEMY_SPEED;
+                else if (enemy_x > player_x) enemy_x -= ENEMY_SPEED;
+                if (enemy_y < player_y) enemy_y += ENEMY_SPEED;
+                else if (enemy_y > player_y) enemy_y -= ENEMY_SPEED;
+
+                // Bullet-enemy collision (use sprite centers)
+                enemy_cx = enemy_x + (SPRITE_SIZE / 2);
+                enemy_cy = enemy_y + (SPRITE_SIZE / 2);
+                for (i = 0; i < MAX_BULLETS; i++) {
+                    if (!bullets[i].active) continue;
+
+                    bullet_cx = bullets[i].x + (BULLET_SIZE / 2);
+                    bullet_cy = bullets[i].y + (BULLET_SIZE / 2);
+                    dx = iabs_s16(bullet_cx - enemy_cx);
+                    dy = iabs_s16(bullet_cy - enemy_cy);
+                    if (dx < BULLET_COLLISION_RADIUS && dy < BULLET_COLLISION_RADIUS) {
+                        bullets[i].active = 0;
+                        enemy_hp--;
+                        if (enemy_hp == 0) {
+                            kills++;
+                            // Level up every 10 kills
+                            level = 1 + (kills / 10);
+                            spawn_enemy(&enemy_x, &enemy_y);
+                            enemy_hp = level;
+                        }
+                        break;
+                    }
+                }
+
+                // Player-enemy collision: game over
+                dx = iabs_s16((player_x + SPRITE_SIZE/2) - enemy_cx);
+                dy = iabs_s16((player_y + SPRITE_SIZE/2) - enemy_cy);
+                if (dx < PLAYER_COLLISION_RADIUS && dy < PLAYER_COLLISION_RADIUS) {
+                    // Transition to game over
+                    stats.kills = kills;
+                    stats.level = level;
+                    hide_all_sprites();
+                    // Clear HUD
+                    consoleDrawText(HUD_LEVEL_LABEL_X, HUD_ROW, "              ");
+                    consoleDrawText(HUD_KILLS_LABEL_X, HUD_ROW, "              ");
+                    scene_gameover_enter(&stats);
+                    current_scene = SCENE_GAMEOVER;
                     break;
                 }
-            }
-        }
 
-        // Update bullets
-        for (i = 0; i < MAX_BULLETS; i++) {
-            if (!bullets[i].active) continue;
+                // Scroll starfield
+                scroll_x++;
+                if ((frame & 3) == 0) scroll_y++;
 
-            bullets[i].x += bullets[i].vx;
-            bullets[i].y += bullets[i].vy;
+                // Draw player (OAM slot 0, tiles 0-3, 16x16)
+                oamSet(0, player_x, player_y, 2, 0, 0, 0, 0);
+                oamSetEx(0, OBJ_LARGE, OBJ_SHOW);
 
-            // Remove if off-screen
-            off_screen = bullets[i].x < -BULLET_SIZE ||
-                         bullets[i].x > SCREEN_W + BULLET_SIZE ||
-                         bullets[i].y < -BULLET_SIZE ||
-                         bullets[i].y > SCREEN_H + BULLET_SIZE;
-            if (off_screen) {
-                bullets[i].active = 0;
-            }
-        }
+                // Draw enemy (OAM slot 1, tiles 4-7, 16x16)
+                oamSet(4, enemy_x, enemy_y, 2, 0, 0, 4, 0);
+                oamSetEx(4, OBJ_LARGE, OBJ_SHOW);
 
-        // Enemy homing toward player
-        if (enemy_x < player_x) enemy_x += ENEMY_SPEED;
-        else if (enemy_x > player_x) enemy_x -= ENEMY_SPEED;
-        if (enemy_y < player_y) enemy_y += ENEMY_SPEED;
-        else if (enemy_y > player_y) enemy_y -= ENEMY_SPEED;
+                // Draw bullets (OAM slots 2-9, tile 8, 8x8)
+                for (i = 0; i < MAX_BULLETS; i++) {
+                    obj = (2 + i) * 4;
+                    if (bullets[i].active) {
+                        oamSet(obj, bullets[i].x, bullets[i].y, 2, 0, 0, 8, 0);
+                        oamSetEx(obj, OBJ_SMALL, OBJ_SHOW);
+                    } else {
+                        oamSetEx(obj, OBJ_SMALL, OBJ_HIDE);
+                    }
+                }
 
-        // Bullet-enemy collision (use sprite centers)
-        enemy_cx = enemy_x + (SPRITE_SIZE / 2);
-        enemy_cy = enemy_y + (SPRITE_SIZE / 2);
-        for (i = 0; i < MAX_BULLETS; i++) {
-            if (!bullets[i].active) continue;
-
-            bullet_cx = bullets[i].x + (BULLET_SIZE / 2);
-            bullet_cy = bullets[i].y + (BULLET_SIZE / 2);
-            dx = iabs_s16(bullet_cx - enemy_cx);
-            dy = iabs_s16(bullet_cy - enemy_cy);
-            if (dx < BULLET_COLLISION_RADIUS && dy < BULLET_COLLISION_RADIUS) {
-                bullets[i].active = 0;
-                enemy_hp--;
-                if (enemy_hp == 0) {
-                    kills++;
-                    // Level up every 10 kills
-                    level = 1 + (kills / 10);
-                    spawn_enemy(&enemy_x, &enemy_y);
-                    enemy_hp = level;
+                // Update HUD only when values change
+                if (level != prev_level) {
+                    prev_level = level;
+                    u16_to_dec(level, text_buf);
+                    consoleDrawText(HUD_LEVEL_LABEL_X, HUD_ROW, "LEVEL:");
+                    consoleDrawText(HUD_LEVEL_VALUE_X, HUD_ROW, "     ");
+                    consoleDrawText(HUD_LEVEL_VALUE_X, HUD_ROW, text_buf);
+                }
+                if (kills != prev_kills) {
+                    prev_kills = kills;
+                    u16_to_dec(kills, text_buf);
+                    consoleDrawText(HUD_KILLS_LABEL_X, HUD_ROW, "KILLS:");
+                    consoleDrawText(HUD_KILLS_VALUE_X, HUD_ROW, "     ");
+                    consoleDrawText(HUD_KILLS_VALUE_X, HUD_ROW, text_buf);
                 }
                 break;
-            }
-        }
 
-        // Player-enemy collision: reset game
-        dx = iabs_s16((player_x + SPRITE_SIZE/2) - enemy_cx);
-        dy = iabs_s16((player_y + SPRITE_SIZE/2) - enemy_cy);
-        if (dx < PLAYER_COLLISION_RADIUS && dy < PLAYER_COLLISION_RADIUS) {
-            kills = 0;
-            level = 1;
-            reset_player(&player_x, &player_y);
-            spawn_enemy(&enemy_x, &enemy_y);
-            enemy_hp = level;
-            clear_bullets(bullets);
-        }
+            case SCENE_GAMEOVER:
+                // Only trigger on button press, not hold
+                if ((pad & KEY_START) && !(prev_pad & KEY_START)) {
+                    next_scene = scene_gameover_update(pad);
+                    if (next_scene == SCENE_TITLE) {
+                        scene_title_enter();
+                        current_scene = SCENE_TITLE;
+                    }
+                }
 
-        // Scroll starfield
-        scroll_x++;
-        if ((frame & 3) == 0) scroll_y++;
-
-        // Draw player (OAM slot 0, tiles 0-3, 16x16)
-        // OAM IDs are byte offsets: slot N = N * 4
-        oamSet(0, player_x, player_y, 2, 0, 0, 0, 0);
-        oamSetEx(0, OBJ_LARGE, OBJ_SHOW);
-
-        // Draw enemy (OAM slot 1, tiles 4-7, 16x16)
-        oamSet(4, enemy_x, enemy_y, 2, 0, 0, 4, 0);
-        oamSetEx(4, OBJ_LARGE, OBJ_SHOW);
-
-        // Draw bullets (OAM slots 2-9, tile 8, 8x8)
-        for (i = 0; i < MAX_BULLETS; i++) {
-            obj = (2 + i) * 4;  // Convert slot to byte offset
-            if (bullets[i].active) {
-                // Keep projectiles above the opaque BG2 starfield.
-                oamSet(obj, bullets[i].x, bullets[i].y, 2, 0, 0, 8, 0);
-                oamSetEx(obj, OBJ_SMALL, OBJ_SHOW);
-            } else {
-                oamSetEx(obj, OBJ_SMALL, OBJ_HIDE);
-            }
+                // Scroll starfield even on game over
+                scroll_x++;
+                if ((frame & 3) == 0) scroll_y++;
+                break;
         }
 
         WaitForVBlank();
-
-        // Update HUD only when values change (keeps VBlank work small).
-        if (level != prev_level) {
-            prev_level = level;
-            u16_to_dec(level, text_buf);
-            consoleDrawText(HUD_LEVEL_LABEL_X, HUD_ROW, "LEVEL:");
-            consoleDrawText(HUD_LEVEL_VALUE_X, HUD_ROW, "     ");
-            consoleDrawText(HUD_LEVEL_VALUE_X, HUD_ROW, text_buf);
-        }
-        if (kills != prev_kills) {
-            prev_kills = kills;
-            u16_to_dec(kills, text_buf);
-            consoleDrawText(HUD_KILLS_LABEL_X, HUD_ROW, "KILLS:");
-            consoleDrawText(HUD_KILLS_VALUE_X, HUD_ROW, "     ");
-            consoleDrawText(HUD_KILLS_VALUE_X, HUD_ROW, text_buf);
-        }
 
         // Apply scroll during VBlank to avoid tearing
         REG_BG2HOFS = scroll_x & 0xFF;
@@ -381,6 +446,7 @@ int main(void) {
         REG_BG2VOFS = (scroll_y >> 8) & 0xFF;
 
         oamUpdate();
+        prev_pad = pad;
         frame++;
     }
 
