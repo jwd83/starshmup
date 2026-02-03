@@ -5,8 +5,9 @@ A space shmup (shoot-em-up) prototype for the Super Nintendo, built with PVSnesL
 
 ## Build System
 - **Toolchain**: PVSnesLib (devkitsnes)
-- **Requirement**: `PVSNESLIB_HOME` environment variable must be set
-- **Build**: `make clean && make`
+- **Build**: `./build.sh`
+- **Clean**: `./build.sh clean`
+- **Debug build**: `./build.sh debug`
 - **Output**: `starshmup.sfc`
 
 ## Project Structure
@@ -14,7 +15,9 @@ A space shmup (shoot-em-up) prototype for the Super Nintendo, built with PVSnesL
 main.c      # Main game loop, player/enemy/bullet logic, collision detection
 gfx.c       # Raw graphics data (4bpp tiles, palettes)
 gfx.h       # Graphics asset declarations
+hdr.asm     # SNES ROM header (memory map, vectors, metadata)
 Makefile    # Build configuration (includes snes_rules)
+build.sh    # Build script (use this instead of make directly)
 ```
 
 ## SNES Hardware Configuration
@@ -61,9 +64,11 @@ Makefile    # Build configuration (includes snes_rules)
 
 ## Development Notes
 - Use `oamSet()` and `oamSetEx()` for sprite management
+- **OAM indices are byte offsets**: sprite 0 = 0, sprite 1 = 4, sprite 2 = 8, etc.
 - Use `dmaCopyVram()` and `dmaCopyCGram()` for VRAM/palette transfers
 - RNG uses 16-bit Galois LFSR (`rng_next_u16()`)
 - Player bounds: 0..240 x, 0..208 y (accounts for 16x16 sprite)
+- Pad input is automatic via VBlank ISR (no init needed)
 
 ## Testing
 Run the output ROM in a SNES emulator (bsnes, snes9x, Mesen-S) or on real hardware via flash cart.

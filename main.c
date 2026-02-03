@@ -178,6 +178,7 @@ int main(void) {
     REG_INIDISP = 0x80;  // Force blank during setup
     init_grid_bg2();
     init_sprites();
+    oamInitGfxAttr(SPR_TILE_BASE, OBJ_SIZE8_L16);
     REG_INIDISP = 0x0F;  // Screen on, max brightness
 
     consoleDrawText(2, 1, "starshmup");
@@ -287,16 +288,17 @@ int main(void) {
         REG_BG2VOFS = (scroll_y >> 8) & 0xFF;
 
         // Draw player (OAM slot 0, tiles 0-3, 16x16)
+        // OAM IDs are byte offsets: slot N = N * 4
         oamSet(0, player_x, player_y, 2, 0, 0, 0, 0);
         oamSetEx(0, OBJ_LARGE, OBJ_SHOW);
 
         // Draw enemy (OAM slot 1, tiles 4-7, 16x16)
-        oamSet(1, enemy_x, enemy_y, 2, 0, 0, 4, 0);
-        oamSetEx(1, OBJ_LARGE, OBJ_SHOW);
+        oamSet(4, enemy_x, enemy_y, 2, 0, 0, 4, 0);
+        oamSetEx(4, OBJ_LARGE, OBJ_SHOW);
 
         // Draw bullets (OAM slots 2-9, tile 8, 8x8)
         for (i = 0; i < MAX_BULLETS; i++) {
-            obj = 2 + i;
+            obj = (2 + i) * 4;  // Convert slot to byte offset
             if (bullets[i].active) {
                 oamSet(obj, bullets[i].x, bullets[i].y, 1, 0, 0, 8, 0);
                 oamSetEx(obj, OBJ_SMALL, OBJ_SHOW);

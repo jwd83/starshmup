@@ -1,35 +1,35 @@
-;==LoRom==
+;==LoRom==                      ; We'll get to HiRom some other time.
 
-.MEMORYMAP
-  SLOTSIZE $8000
-  DEFAULTSLOT 0
-  SLOT 0 $8000
+.MEMORYMAP                      ; Begin describing the system architecture.
+  SLOTSIZE $8000                ; The slot is $8000 bytes in size. More details on slots later.
+  DEFAULTSLOT 0                 ; There's only 1 slot in SNES, there are more in other consoles.
+  SLOT 0 $8000                  ; Defines Slot 0's starting address.
   SLOT 1 $0 $2000
   SLOT 2 $2000 $E000
   SLOT 3 $0 $10000
-.ENDME
+.ENDME          ; End MemoryMap definition
 
-.ROMBANKSIZE $8000
-.ROMBANKS 8
+.ROMBANKSIZE $8000              ; Every ROM bank is 32 KBytes in size
+.ROMBANKS 8                     ; 2 Mbits - Tell WLA we want to use 8 ROM Banks
 
 .SNESHEADER
-  ID "SNES"
+  ID "SNES"                     ; 1-4 letter string, just leave it as "SNES"
 
-  NAME "STARSHMUP            "
-  ;    "123456789012345678901"
+  NAME "STARSHMUP            "  ; Program Title - can't be over 21 bytes,
+  ;    "123456789012345678901"  ; use spaces for unused bytes of the name.
 
   SLOWROM
   LOROM
 
-  CARTRIDGETYPE $00
-  ROMSIZE $08
-  SRAMSIZE $00
-  COUNTRY $01
-  LICENSEECODE $00
-  VERSION $00
+  CARTRIDGETYPE $00             ; $00=ROM, $01=ROM+RAM, $02=ROM+SRAM
+  ROMSIZE $08                   ; $08=2 Megabits
+  SRAMSIZE $00                  ; $00=0 kilobits
+  COUNTRY $01                   ; $01= U.S.
+  LICENSEECODE $00              ; Just use $00
+  VERSION $00                   ; $00 = 1.00
 .ENDSNES
 
-.SNESNATIVEVECTOR
+.SNESNATIVEVECTOR               ; Define Native Mode interrupt vector table
   COP EmptyHandler
   BRK EmptyHandler
   ABORT EmptyHandler
@@ -37,10 +37,10 @@
   IRQ EmptyHandler
 .ENDNATIVEVECTOR
 
-.SNESEMUVECTOR
+.SNESEMUVECTOR                  ; Define Emulation Mode interrupt vector table
   COP EmptyHandler
   ABORT EmptyHandler
   NMI EmptyHandler
-  RESET tcc__start
+  RESET tcc__start                   ; where execution starts
   IRQBRK EmptyHandler
 .ENDEMUVECTOR
