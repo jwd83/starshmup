@@ -20,5 +20,5 @@ include $(PVSNESLIB_HOME)/devkitsnes/snes_rules
 all: $(ROMNAME).sfc
 
 clean: cleanBuildRes cleanRom
-	@rm -f *.ps *.asp main.asm gfx.asm
+	@rm -f *.ps *.asp main.asm gfx.asm data.obj
 

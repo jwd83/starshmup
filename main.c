@@ -2,6 +2,9 @@
 
 #include "gfx.h"
 
+// Font from data.asm
+extern char tilfont, palfont;
+
 // Screen dimensions
 #define SCREEN_W 256
 #define SCREEN_H 224
@@ -179,9 +182,25 @@ int main(void) {
 
     consoleInit();
     REG_INIDISP = 0x80;  // Force blank during setup
+
+    // Initialize text system (BG1)
+    consoleSetTextMapPtr(0x0800);
+    consoleSetTextGfxPtr(0x3000);
+    consoleInitText(0, 16 * 2, &tilfont, &palfont);
+    bgSetGfxPtr(0, 0x3000);
+    bgSetMapPtr(0, 0x0800, SC_32x32);
+
+    // Initialize grid background (BG2) and sprites
     init_grid_bg2();
     init_sprites();
     oamInitGfxAttr(SPR_TILE_BASE, OBJ_SIZE8_L16);
+
+    // Set video mode and enable layers: BG1 (text) + BG2 (grid) + OBJ (sprites)
+    setMode(BG_MODE1, 0);
+    bgSetEnable(0);  // BG1 for text
+    bgSetEnable(1);  // BG2 for grid
+
+    setScreenOn();
     REG_INIDISP = 0x0F;  // Screen on, max brightness
 
     reset_player(&player_x, &player_y);
