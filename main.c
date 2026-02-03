@@ -34,6 +34,12 @@ extern char tilfont, palfont;
 #define SPRITE_SIZE 16
 #define BULLET_SIZE 8
 
+#define HUD_ROW 1
+#define HUD_LEVEL_LABEL_X 1
+#define HUD_LEVEL_VALUE_X 8
+#define HUD_KILLS_LABEL_X 13
+#define HUD_KILLS_VALUE_X 20
+
 typedef struct Bullet {
     s16 x, y;
     s8 vx, vy;
@@ -216,7 +222,6 @@ int main(void) {
     enemy_hp = level;
 
     while (1) {
-        WaitForVBlank();
         pad = padsCurrent(0);
 
         // Read d-pad input
@@ -312,24 +317,9 @@ int main(void) {
             clear_bullets(bullets);
         }
 
-        // Update HUD (top left)
-        u16_to_dec(kills, text_buf);
-        consoleDrawText(1, 1, "KILLS:");
-        consoleDrawText(8, 1, "     ");  // clear old value
-        consoleDrawText(8, 1, text_buf);
-        u16_to_dec(level, text_buf);
-        consoleDrawText(1, 2, "LEVEL:");
-        consoleDrawText(8, 2, "     ");
-        consoleDrawText(8, 2, text_buf);
-
         // Scroll background grid
         scroll_x++;
         if ((frame & 3) == 0) scroll_y++;
-
-        REG_BG2HOFS = scroll_x & 0xFF;
-        REG_BG2HOFS = (scroll_x >> 8) & 0xFF;
-        REG_BG2VOFS = scroll_y & 0xFF;
-        REG_BG2VOFS = (scroll_y >> 8) & 0xFF;
 
         // Draw player (OAM slot 0, tiles 0-3, 16x16)
         // OAM IDs are byte offsets: slot N = N * 4
@@ -350,6 +340,24 @@ int main(void) {
                 oamSetEx(obj, OBJ_SMALL, OBJ_HIDE);
             }
         }
+
+        WaitForVBlank();
+
+        // Update HUD (Level top-left, Kills near center)
+        u16_to_dec(level, text_buf);
+        consoleDrawText(HUD_LEVEL_LABEL_X, HUD_ROW, "LEVEL:");
+        consoleDrawText(HUD_LEVEL_VALUE_X, HUD_ROW, "     ");
+        consoleDrawText(HUD_LEVEL_VALUE_X, HUD_ROW, text_buf);
+        u16_to_dec(kills, text_buf);
+        consoleDrawText(HUD_KILLS_LABEL_X, HUD_ROW, "KILLS:");
+        consoleDrawText(HUD_KILLS_VALUE_X, HUD_ROW, "     ");
+        consoleDrawText(HUD_KILLS_VALUE_X, HUD_ROW, text_buf);
+
+        // Apply scroll during VBlank to avoid tearing
+        REG_BG2HOFS = scroll_x & 0xFF;
+        REG_BG2HOFS = (scroll_x >> 8) & 0xFF;
+        REG_BG2VOFS = scroll_y & 0xFF;
+        REG_BG2VOFS = (scroll_y >> 8) & 0xFF;
 
         oamUpdate();
         frame++;
