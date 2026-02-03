@@ -17,8 +17,8 @@ extern char tilfont, palfont;
 #define BG2_MAP_BASE  0x5000
 #define SPR_TILE_BASE 0x8000
 
-// BG palette #1 starts at color index 16
-#define BG_PAL1_CGRAM_BYTE_OFFSET (16 * 2)
+// BG palette #1 starts at color index 16 (CGRAM entry, not byte offset)
+#define BG_PAL1_CGRAM_ENTRY 16
 
 // Tilemap entry helper (4bpp BGs)
 #define BG_MAP_PAL(p) ((u16)((p) & 0x7) << 10)
@@ -92,15 +92,23 @@ static void u16_to_dec(u16 v, char* out) {
 }
 
 // Build 32x32 tilemap: major lines every 4 tiles, minor elsewhere
-static void build_grid_map(u16* map32x32) {
+static void build_starfield_map(u16* map32x32) {
     const u16 pal_bits = BG_MAP_PAL(1);
     u16 x, y;
-    u8 is_major;
 
     for (y = 0; y < 32; y++) {
         for (x = 0; x < 32; x++) {
-            is_major = ((x & 3) == 0) || ((y & 3) == 0);
-            map32x32[y * 32 + x] = (is_major ? 1 : 0) | pal_bits;
+            // Deterministic "random" based on tile coordinates.
+            // Roughly 1/16 tiles contain a star; star variants 1..4.
+            u16 r = (u16)(x * 1103u) ^ (u16)(y * 2503u) ^ 0xA5A5u;
+            r ^= (u16)((r >> 3) | (r << 5));
+
+            if ((r & 0x0F) == 0) {
+                u16 tile = (u16)(1 + ((r >> 4) & 3));  // 1..4
+                map32x32[y * 32 + x] = tile | pal_bits;
+            } else {
+                map32x32[y * 32 + x] = 0 | pal_bits;
+            }
         }
     }
 }
@@ -109,9 +117,9 @@ static void init_grid_bg2(void) {
     static u16 map32x32[32 * 32];
 
     dmaCopyVram((u8*)g_gridTiles4bpp, BG2_TILE_BASE, g_gridTiles4bpp_len);
-    dmaCopyCGram((u8*)g_gridPal16, BG_PAL1_CGRAM_BYTE_OFFSET, g_gridPal16_len);
+    dmaCopyCGram((u8*)g_gridPal16, BG_PAL1_CGRAM_ENTRY, g_gridPal16_len);
 
-    build_grid_map(map32x32);
+    build_starfield_map(map32x32);
     dmaCopyVram((u8*)map32x32, BG2_MAP_BASE, sizeof(map32x32));
 
     REG_BG2SC = (u8)(((BG2_MAP_BASE >> 10) & 0x3F) << 2);
@@ -176,6 +184,8 @@ int main(void) {
     s8 aim_dy = -1;  // Default aim: up
     u16 kills = 0;
     u16 level = 1;
+    u16 prev_kills = 0xFFFF;
+    u16 prev_level = 0xFFFF;
     u8 enemy_hp = 1;
     char text_buf[20];
     u16 frame = 0;
@@ -193,7 +203,8 @@ int main(void) {
     consoleSetTextMapPtr(0x6800);
     consoleSetTextGfxPtr(0x3000);
     consoleSetTextOffset(0x0100);
-    consoleInitText(0, 16 * 2, &tilfont, &palfont);
+    // Text palette is 16 colors; passing bytes here would overwrite other BG palettes.
+    consoleInitText(0, 16, &tilfont, &palfont);
 
     // BG1 setup for text
     bgSetGfxPtr(0, 0x2000);
@@ -212,6 +223,9 @@ int main(void) {
     setMode(BG_MODE1, 0);
     bgSetEnable(0);
     bgSetEnable(1);
+
+    // Ensure backdrop is black (color index 0).
+    setPaletteColor(0, 0x0000);
 
     // Screen on
     setBrightness(0xF);
@@ -317,7 +331,7 @@ int main(void) {
             clear_bullets(bullets);
         }
 
-        // Scroll background grid
+        // Scroll starfield
         scroll_x++;
         if ((frame & 3) == 0) scroll_y++;
 
@@ -343,15 +357,21 @@ int main(void) {
 
         WaitForVBlank();
 
-        // Update HUD (Level top-left, Kills near center)
-        u16_to_dec(level, text_buf);
-        consoleDrawText(HUD_LEVEL_LABEL_X, HUD_ROW, "LEVEL:");
-        consoleDrawText(HUD_LEVEL_VALUE_X, HUD_ROW, "     ");
-        consoleDrawText(HUD_LEVEL_VALUE_X, HUD_ROW, text_buf);
-        u16_to_dec(kills, text_buf);
-        consoleDrawText(HUD_KILLS_LABEL_X, HUD_ROW, "KILLS:");
-        consoleDrawText(HUD_KILLS_VALUE_X, HUD_ROW, "     ");
-        consoleDrawText(HUD_KILLS_VALUE_X, HUD_ROW, text_buf);
+        // Update HUD only when values change (keeps VBlank work small).
+        if (level != prev_level) {
+            prev_level = level;
+            u16_to_dec(level, text_buf);
+            consoleDrawText(HUD_LEVEL_LABEL_X, HUD_ROW, "LEVEL:");
+            consoleDrawText(HUD_LEVEL_VALUE_X, HUD_ROW, "     ");
+            consoleDrawText(HUD_LEVEL_VALUE_X, HUD_ROW, text_buf);
+        }
+        if (kills != prev_kills) {
+            prev_kills = kills;
+            u16_to_dec(kills, text_buf);
+            consoleDrawText(HUD_KILLS_LABEL_X, HUD_ROW, "KILLS:");
+            consoleDrawText(HUD_KILLS_VALUE_X, HUD_ROW, "     ");
+            consoleDrawText(HUD_KILLS_VALUE_X, HUD_ROW, text_buf);
+        }
 
         // Apply scroll during VBlank to avoid tearing
         REG_BG2HOFS = scroll_x & 0xFF;
