@@ -1,0 +1,13 @@
+*.o
+*.a
+*.elf
+*.map
+*.sym
+*.lst
+*.sfc
+*.smc
+*.swp
+*.swo
+.DS_Store
+build/
+
