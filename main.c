@@ -164,8 +164,10 @@ int main(void) {
     Bullet bullets[MAX_BULLETS];
     s8 aim_dx = 0;
     s8 aim_dy = -1;  // Default aim: up
-    u16 score = 0;
-    char score_buf[16];
+    u16 kills = 0;
+    u16 level = 1;
+    u8 enemy_hp = 1;
+    char text_buf[20];
     u16 frame = 0;
     u16 scroll_x = 0;
     u16 scroll_y = 0;
@@ -173,6 +175,7 @@ int main(void) {
     s8 move_dx, move_dy;
     u8 i, obj, off_screen;
     s16 dx, dy;
+    s16 bullet_cx, bullet_cy, enemy_cx, enemy_cy;  // centers for collision
 
     consoleInit();
     REG_INIDISP = 0x80;  // Force blank during setup
@@ -181,12 +184,10 @@ int main(void) {
     oamInitGfxAttr(SPR_TILE_BASE, OBJ_SIZE8_L16);
     REG_INIDISP = 0x0F;  // Screen on, max brightness
 
-    consoleDrawText(2, 1, "starshmup");
-    consoleDrawText(2, 2, "dpad move, autofire");
-
     reset_player(&player_x, &player_y);
     spawn_enemy(&enemy_x, &enemy_y);
     clear_bullets(bullets);
+    enemy_hp = level;
 
     while (1) {
         WaitForVBlank();
@@ -249,34 +250,51 @@ int main(void) {
         if (enemy_y < player_y) enemy_y += ENEMY_SPEED;
         else if (enemy_y > player_y) enemy_y -= ENEMY_SPEED;
 
-        // Bullet-enemy collision
+        // Bullet-enemy collision (use sprite centers)
+        enemy_cx = enemy_x + (SPRITE_SIZE / 2);
+        enemy_cy = enemy_y + (SPRITE_SIZE / 2);
         for (i = 0; i < MAX_BULLETS; i++) {
             if (!bullets[i].active) continue;
 
-            dx = iabs_s16(bullets[i].x - enemy_x);
-            dy = iabs_s16(bullets[i].y - enemy_y);
+            bullet_cx = bullets[i].x + (BULLET_SIZE / 2);
+            bullet_cy = bullets[i].y + (BULLET_SIZE / 2);
+            dx = iabs_s16(bullet_cx - enemy_cx);
+            dy = iabs_s16(bullet_cy - enemy_cy);
             if (dx < BULLET_COLLISION_RADIUS && dy < BULLET_COLLISION_RADIUS) {
                 bullets[i].active = 0;
-                score++;
-                spawn_enemy(&enemy_x, &enemy_y);
+                enemy_hp--;
+                if (enemy_hp == 0) {
+                    kills++;
+                    // Level up every 10 kills
+                    level = 1 + (kills / 10);
+                    spawn_enemy(&enemy_x, &enemy_y);
+                    enemy_hp = level;
+                }
                 break;
             }
         }
 
         // Player-enemy collision: reset game
-        dx = iabs_s16(player_x - enemy_x);
-        dy = iabs_s16(player_y - enemy_y);
+        dx = iabs_s16((player_x + SPRITE_SIZE/2) - enemy_cx);
+        dy = iabs_s16((player_y + SPRITE_SIZE/2) - enemy_cy);
         if (dx < PLAYER_COLLISION_RADIUS && dy < PLAYER_COLLISION_RADIUS) {
-            score = 0;
+            kills = 0;
+            level = 1;
             reset_player(&player_x, &player_y);
             spawn_enemy(&enemy_x, &enemy_y);
+            enemy_hp = level;
             clear_bullets(bullets);
         }
 
-        // Update score display
-        u16_to_dec(score, score_buf);
-        consoleDrawText(2, 4, "SCORE:          ");
-        consoleDrawText(9, 4, score_buf);
+        // Update HUD (top left)
+        u16_to_dec(kills, text_buf);
+        consoleDrawText(1, 1, "KILLS:");
+        consoleDrawText(8, 1, "     ");  // clear old value
+        consoleDrawText(8, 1, text_buf);
+        u16_to_dec(level, text_buf);
+        consoleDrawText(1, 2, "LEVEL:");
+        consoleDrawText(8, 2, "     ");
+        consoleDrawText(8, 2, text_buf);
 
         // Scroll background grid
         scroll_x++;
