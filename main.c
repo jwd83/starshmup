@@ -31,8 +31,9 @@ extern char tilfont, palfont;
 #define ENEMY_SPEED 1
 #define AUTOFIRE_INTERVAL 6
 #define BULLET_COLLISION_RADIUS 10
-#define PLAYER_COLLISION_RADIUS 12
-#define SPRITE_SIZE 16
+#define PLAYER_COLLISION_RADIUS 6
+#define PLAYER_SIZE 8
+#define ENEMY_SIZE 16
 #define BULLET_SIZE 8
 
 #define HUD_ROW 1
@@ -142,8 +143,8 @@ static void init_sprites(void) {
 static void spawn_enemy(s16* ex, s16* ey) {
     const u16 r = rng_next_u16();
     const u8 edge = r & 3;
-    const s16 max_x = SCREEN_W - SPRITE_SIZE;
-    const s16 max_y = SCREEN_H - SPRITE_SIZE;
+    const s16 max_x = SCREEN_W - ENEMY_SIZE;
+    const s16 max_y = SCREEN_H - ENEMY_SIZE;
 
     switch (edge) {
         case 0:  // top
@@ -173,8 +174,8 @@ static void clear_bullets(Bullet* bullets) {
 }
 
 static void reset_player(s16* px, s16* py) {
-    *px = (SCREEN_W / 2) - (SPRITE_SIZE / 2);
-    *py = (SCREEN_H / 2) - (SPRITE_SIZE / 2);
+    *px = (SCREEN_W / 2) - (PLAYER_SIZE / 2);
+    *py = (SCREEN_H / 2) - (PLAYER_SIZE / 2);
 }
 
 // Hide all sprites (used during title/gameover screens)
@@ -301,16 +302,16 @@ int main(void) {
                 // Move player
                 player_x += move_dx * PLAYER_SPEED;
                 player_y += move_dy * PLAYER_SPEED;
-                player_x = clamp_s16(player_x, 0, SCREEN_W - SPRITE_SIZE);
-                player_y = clamp_s16(player_y, 0, SCREEN_H - SPRITE_SIZE);
+                player_x = clamp_s16(player_x, 0, SCREEN_W - PLAYER_SIZE);
+                player_y = clamp_s16(player_y, 0, SCREEN_H - PLAYER_SIZE);
 
                 // Autofire
                 if ((frame % AUTOFIRE_INTERVAL) == 0) {
                     for (i = 0; i < MAX_BULLETS; i++) {
                         if (!bullets[i].active) {
                             bullets[i].active = 1;
-                            bullets[i].x = player_x + (SPRITE_SIZE / 2) - (BULLET_SIZE / 2);
-                            bullets[i].y = player_y + (SPRITE_SIZE / 2) - (BULLET_SIZE / 2);
+                            bullets[i].x = player_x + (PLAYER_SIZE / 2) - (BULLET_SIZE / 2);
+                            bullets[i].y = player_y + (PLAYER_SIZE / 2) - (BULLET_SIZE / 2);
                             bullets[i].vx = aim_dx * BULLET_SPEED;
                             bullets[i].vy = aim_dy * BULLET_SPEED;
                             break;
@@ -342,8 +343,8 @@ int main(void) {
                 else if (enemy_y > player_y) enemy_y -= ENEMY_SPEED;
 
                 // Bullet-enemy collision (use sprite centers)
-                enemy_cx = enemy_x + (SPRITE_SIZE / 2);
-                enemy_cy = enemy_y + (SPRITE_SIZE / 2);
+                enemy_cx = enemy_x + (ENEMY_SIZE / 2);
+                enemy_cy = enemy_y + (ENEMY_SIZE / 2);
                 for (i = 0; i < MAX_BULLETS; i++) {
                     if (!bullets[i].active) continue;
 
@@ -366,8 +367,8 @@ int main(void) {
                 }
 
                 // Player-enemy collision: game over
-                dx = iabs_s16((player_x + SPRITE_SIZE/2) - enemy_cx);
-                dy = iabs_s16((player_y + SPRITE_SIZE/2) - enemy_cy);
+                dx = iabs_s16((player_x + PLAYER_SIZE / 2) - enemy_cx);
+                dy = iabs_s16((player_y + PLAYER_SIZE / 2) - enemy_cy);
                 if (dx < PLAYER_COLLISION_RADIUS && dy < PLAYER_COLLISION_RADIUS) {
                     // Transition to game over
                     stats.kills = kills;
@@ -385,9 +386,9 @@ int main(void) {
                 scroll_x++;
                 if ((frame & 3) == 0) scroll_y++;
 
-                // Draw player (OAM slot 0, tiles 0-3, 16x16)
+                // Draw player (OAM slot 0, tile 0, 8x8)
                 oamSet(0, player_x, player_y, 2, 0, 0, 0, 0);
-                oamSetEx(0, OBJ_LARGE, OBJ_SHOW);
+                oamSetEx(0, OBJ_SMALL, OBJ_SHOW);
 
                 // Draw enemy (OAM slot 1, tiles 4-7, 16x16)
                 oamSet(4, enemy_x, enemy_y, 2, 0, 0, 4, 0);
