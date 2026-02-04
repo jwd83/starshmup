@@ -13,15 +13,19 @@ A space shmup (shoot-em-up) prototype for the Super Nintendo, built with PVSnesL
 
 ## Project Structure
 ```
-main.c      # Main game loop, player/enemy/bullet logic, collision detection
-gfx.c       # Raw graphics data (4bpp tiles, palettes)
-gfx.h       # Graphics asset declarations
-data.asm    # Font binary includes for console text (BG1)
+main.c           # Main game loop, scene management, player/enemy/bullet logic
+scenes.h         # Scene enum and shared state (GameStats)
+scene_title.c    # Title screen scene
+scene_gameover.c # Game over screen scene
+gfx.c            # Raw graphics data (4bpp tiles, palettes)
+gfx.h            # Graphics asset declarations
+data.asm         # Font binary includes for console text (BG1)
 pvsneslibfont.pic # Font tiles (4bpp) used by console text
 pvsneslibfont.pal # Font palette used by console text
-hdr.asm     # SNES ROM header (memory map, vectors, metadata)
-Makefile    # Build configuration (includes snes_rules)
-build.sh    # Build script (use this instead of make directly)
+hdr.asm          # SNES ROM header (memory map, vectors, metadata)
+Makefile         # Build configuration (includes snes_rules)
+build.sh         # Build script (use this instead of make directly)
+output/imagegen/ # Generated sprite art (PNGs, not used directly in build)
 ```
 
 ## SNES Hardware Configuration
@@ -60,16 +64,24 @@ build.sh    # Build script (use this instead of make directly)
 - Palettes: BGR555 format (native SNES)
 - Gameplay graphics are embedded in gfx.c; console font data is included via `data.asm` (`pvsneslibfont.pic` / `pvsneslibfont.pal`)
 
-## Game Loop Order
-1. Read controller (D-pad)
+## Scene System
+- **SCENE_TITLE**: Press START to begin gameplay
+- **SCENE_GAMEPLAY**: Main game loop (see below)
+- **SCENE_GAMEOVER**: Shows final kills/level, press START to return to title
+
+Scene transitions hide all sprites and redraw text as needed.
+
+## Game Loop Order (SCENE_GAMEPLAY)
+1. Read controller (D-pad + START)
 2. Update player + aim direction
 3. Spawn/update bullets
 4. Update enemy AI (homing) + collisions (kills/level)
-5. Update starfield scroll values
-6. Write OAM entries for sprites
-7. Wait for V-Blank
-8. Update HUD text (only when values change)
-9. Apply BG2 scroll registers and `oamUpdate()`
+5. Check player-enemy collision (triggers SCENE_GAMEOVER)
+6. Update starfield scroll values
+7. Write OAM entries for sprites
+8. Wait for V-Blank
+9. Update HUD text (only when values change)
+10. Apply BG2 scroll registers and `oamUpdate()`
 
 ## Development Notes
 - Use `oamSet()` and `oamSetEx()` for sprite management

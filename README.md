@@ -2,10 +2,10 @@
 
 A space shmup prototype for Super Nintendo, built with PVSnesLib.
 
-- D-pad movement
-- Autofire in last-move direction
-- Homing enemy
-- Collision detection
+- Title screen and game over screen
+- D-pad movement with autofire in last-move direction
+- Homing enemy with HP scaling by level
+- Collision detection (player death on contact)
 - Scrolling starfield background
 - HUD: LEVEL + KILLS
 
@@ -57,21 +57,24 @@ Open `starshmup.sfc` in an emulator (bsnes, snes9x, Mesen-S) or flash cart.
 
 ## Controls
 
+- **START**: Begin game / return to title after game over
 - **D-pad**: Move (also sets aim direction)
 - **Autofire**: Always on, fires in last move direction (defaults to up)
 
 ## Project Structure
 
 ```
-main.c       # Game loop, player/enemy/bullet logic
-gfx.c        # Graphics data (tiles, palettes)
-gfx.h        # Graphics declarations
-data.asm     # Font binary includes for console text (BG1)
-pvsneslibfont.pic  # Font tiles (4bpp) used by console text
-pvsneslibfont.pal  # Font palette used by console text
-hdr.asm      # ROM header
-Makefile     # Build config
-build.sh     # Build script
+main.c           # Game loop, scene management, player/enemy/bullet logic
+scenes.h         # Scene definitions and shared state
+scene_title.c    # Title screen
+scene_gameover.c # Game over screen
+gfx.c            # Graphics data (tiles, palettes)
+gfx.h            # Graphics declarations
+data.asm         # Font binary includes for console text (BG1)
+pvsneslibfont.*  # Font tiles and palette
+hdr.asm          # ROM header
+Makefile         # Build config
+build.sh         # Build script
 ```
 
 ## Technical Details
