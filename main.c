@@ -31,8 +31,8 @@ extern char tilfont, palfont;
 #define ENEMY_SPEED 1
 #define AUTOFIRE_INTERVAL 6
 #define BULLET_COLLISION_RADIUS 10
-#define PLAYER_COLLISION_RADIUS 6
-#define PLAYER_SIZE 8
+#define PLAYER_COLLISION_RADIUS 12
+#define PLAYER_SIZE 16
 #define ENEMY_SIZE 16
 #define BULLET_SIZE 8
 
@@ -181,7 +181,8 @@ static void reset_player(s16* px, s16* py) {
 // Hide all sprites (used during title/gameover screens)
 static void hide_all_sprites(void) {
     u8 i;
-    for (i = 0; i < 10; i++) {
+    // Player uses 4 sprites, enemy 1, bullets 8 => 13 total
+    for (i = 0; i < 13; i++) {
         oamSetEx(i * 4, OBJ_SMALL, OBJ_HIDE);
     }
 }
@@ -386,17 +387,23 @@ int main(void) {
                 scroll_x++;
                 if ((frame & 3) == 0) scroll_y++;
 
-                // Draw player (OAM slot 0, tile 0, 8x8)
-                oamSet(0, player_x, player_y, 2, 0, 0, 0, 0);
-                oamSetEx(0, OBJ_SMALL, OBJ_SHOW);
+                // Draw player metasprite (4x 8x8 => 16x16, tiles 0-3)
+                oamSet(0,  player_x,      player_y,      2, 0, 0, 0, 0);
+                oamSet(4,  player_x + 8,  player_y,      2, 0, 0, 1, 0);
+                oamSet(8,  player_x,      player_y + 8,  2, 0, 0, 2, 0);
+                oamSet(12, player_x + 8,  player_y + 8,  2, 0, 0, 3, 0);
+                oamSetEx(0,  OBJ_SMALL, OBJ_SHOW);
+                oamSetEx(4,  OBJ_SMALL, OBJ_SHOW);
+                oamSetEx(8,  OBJ_SMALL, OBJ_SHOW);
+                oamSetEx(12, OBJ_SMALL, OBJ_SHOW);
 
-                // Draw enemy (OAM slot 1, tiles 4-7, 16x16)
-                oamSet(4, enemy_x, enemy_y, 2, 0, 0, 4, 0);
-                oamSetEx(4, OBJ_LARGE, OBJ_SHOW);
+                // Draw enemy (OAM slot 4, tiles 4-7, 16x16)
+                oamSet(16, enemy_x, enemy_y, 2, 0, 0, 4, 0);
+                oamSetEx(16, OBJ_LARGE, OBJ_SHOW);
 
-                // Draw bullets (OAM slots 2-9, tile 8, 8x8)
+                // Draw bullets (OAM slots 5-12, tile 8, 8x8)
                 for (i = 0; i < MAX_BULLETS; i++) {
-                    obj = (2 + i) * 4;
+                    obj = (5 + i) * 4;
                     if (bullets[i].active) {
                         oamSet(obj, bullets[i].x, bullets[i].y, 2, 0, 0, 8, 0);
                         oamSetEx(obj, OBJ_SMALL, OBJ_SHOW);
