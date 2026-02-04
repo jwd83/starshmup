@@ -128,15 +128,22 @@ static void init_grid_bg2(void) {
     // Note: video mode and REG_TM set later after text init
 }
 
+// Sprite palette CGRAM addresses (sprite palettes start at CGRAM entry 128)
+#define SPR_PAL0_CGRAM 128  // Player
+#define SPR_PAL1_CGRAM 144  // Enemy
+#define SPR_PAL2_CGRAM 160  // Bullet
+
 static void init_sprites(void) {
-    // Small=8x8, Large=16x16
-    oamInitGfxSet((u8*)g_spriteTiles4bpp,
-                  g_spriteTiles4bpp_len,
-                  (u8*)g_spritePal,
-                  g_spritePal_len,
-                  0,
-                  SPR_TILE_BASE,
-                  OBJ_SIZE8_L16);
+    // Load sprite tiles
+    dmaCopyVram((u8*)g_spriteTiles4bpp, SPR_TILE_BASE, g_spriteTiles4bpp_len);
+
+    // Load separate palettes for each sprite type
+    dmaCopyCGram((u8*)g_playerPal, SPR_PAL0_CGRAM, g_playerPal_len);
+    dmaCopyCGram((u8*)g_enemyPal, SPR_PAL1_CGRAM, g_enemyPal_len);
+    dmaCopyCGram((u8*)g_bulletPal, SPR_PAL2_CGRAM, g_bulletPal_len);
+
+    // Set sprite size: Small=8x8, Large=16x16
+    oamInitGfxAttr(SPR_TILE_BASE, OBJ_SIZE8_L16);
 }
 
 // Spawn enemy at random screen edge
@@ -238,7 +245,6 @@ int main(void) {
     // Initialize grid background (BG2) and sprites
     init_grid_bg2();
     init_sprites();
-    oamInitGfxAttr(SPR_TILE_BASE, OBJ_SIZE8_L16);
 
     // BG2: grid - tiles at 0x6000, map at 0x7000
     bgSetGfxPtr(1, BG2_TILE_BASE);
@@ -388,7 +394,7 @@ int main(void) {
                 scroll_x++;
                 if ((frame & 3) == 0) scroll_y++;
 
-                // Draw player metasprite (4x 8x8 => 16x16, tiles 0-3)
+                // Draw player metasprite (4x 8x8 => 16x16, tiles 0-3, palette 0)
                 oamSet(0,  player_x,      player_y,      2, 0, 0, 0, 0);
                 oamSet(4,  player_x + 8,  player_y,      2, 0, 0, 1, 0);
                 oamSet(8,  player_x,      player_y + 8,  2, 0, 0, 2, 0);
@@ -398,21 +404,21 @@ int main(void) {
                 oamSetEx(8,  OBJ_SMALL, OBJ_SHOW);
                 oamSetEx(12, OBJ_SMALL, OBJ_SHOW);
 
-                // Draw enemy metasprite (4x 8x8 => 16x16, tiles 4-7)
-                oamSet(16, enemy_x,      enemy_y,      2, 0, 0, 4, 0);
-                oamSet(20, enemy_x + 8,  enemy_y,      2, 0, 0, 5, 0);
-                oamSet(24, enemy_x,      enemy_y + 8,  2, 0, 0, 6, 0);
-                oamSet(28, enemy_x + 8,  enemy_y + 8,  2, 0, 0, 7, 0);
+                // Draw enemy metasprite (4x 8x8 => 16x16, tiles 4-7, palette 1)
+                oamSet(16, enemy_x,      enemy_y,      2, 0, 0, 4, 1);
+                oamSet(20, enemy_x + 8,  enemy_y,      2, 0, 0, 5, 1);
+                oamSet(24, enemy_x,      enemy_y + 8,  2, 0, 0, 6, 1);
+                oamSet(28, enemy_x + 8,  enemy_y + 8,  2, 0, 0, 7, 1);
                 oamSetEx(16, OBJ_SMALL, OBJ_SHOW);
                 oamSetEx(20, OBJ_SMALL, OBJ_SHOW);
                 oamSetEx(24, OBJ_SMALL, OBJ_SHOW);
                 oamSetEx(28, OBJ_SMALL, OBJ_SHOW);
 
-                // Draw bullets (OAM slots 8-15, tile 8, 8x8)
+                // Draw bullets (OAM slots 8-15, tile 8, 8x8, palette 2)
                 for (i = 0; i < MAX_BULLETS; i++) {
                     obj = (8 + i) * 4;
                     if (bullets[i].active) {
-                        oamSet(obj, bullets[i].x, bullets[i].y, 2, 0, 0, 8, 0);
+                        oamSet(obj, bullets[i].x, bullets[i].y, 2, 0, 0, 8, 2);
                         oamSetEx(obj, OBJ_SMALL, OBJ_SHOW);
                     } else {
                         oamSetEx(obj, OBJ_SMALL, OBJ_HIDE);

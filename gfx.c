@@ -40,13 +40,32 @@ const u8 g_spriteTiles4bpp[] = {
 
 const u16 g_spriteTiles4bpp_len = sizeof(g_spriteTiles4bpp);
 
-// Sprite palette (BGR555)
-const u16 g_spritePal[] = {
-    // 0: transparent, 1: green, 2: magenta, 3: yellow (bullets), 4: white, 5: gray, 6: cyan (player lights), 7: red, 8: dark gray
-    0x0000, 0x03E0, 0x7C1F, 0x7FE0, 0x7FFF, 0x4210, 0x03FF, 0x7C00,
+// Sprite palettes (BGR555) - separate palette per sprite type
+// SNES sprite palettes are at CGRAM 128-255 (palettes 0-7, 16 colors each)
+
+// Player palette (sprite palette 0, CGRAM 128-143)
+// Uses: 0=transparent, 4=white, 5=gray, 6=cyan, 8=dark
+const u16 g_playerPal[] = {
+    0x0000, 0x0000, 0x0000, 0x0000, 0x7FFF, 0x4210, 0x7FE0, 0x0000,
     0x2108, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
 };
-const u16 g_spritePal_len = sizeof(g_spritePal);
+const u16 g_playerPal_len = sizeof(g_playerPal);
+
+// Enemy palette (sprite palette 1, CGRAM 144-159)
+// Uses: 0=transparent, 1=green, 4=white, 7=magenta, 8=dark
+const u16 g_enemyPal[] = {
+    0x0000, 0x03E0, 0x0000, 0x0000, 0x7FFF, 0x0000, 0x0000, 0x7C1F,
+    0x2108, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+};
+const u16 g_enemyPal_len = sizeof(g_enemyPal);
+
+// Bullet palette (sprite palette 2, CGRAM 160-175)
+// Uses: 0=transparent, 3=yellow, 4=white, 8=dark
+const u16 g_bulletPal[] = {
+    0x0000, 0x0000, 0x0000, 0x03FF, 0x7FFF, 0x0000, 0x0000, 0x0000,
+    0x2108, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+};
+const u16 g_bulletPal_len = sizeof(g_bulletPal);
 
 // Starfield tiles for BG2 (4bpp)
 // Tile 0: solid black (color index 1) so we don't rely on backdrop color

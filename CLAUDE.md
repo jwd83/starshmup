@@ -44,9 +44,19 @@ output/imagegen/ # Generated sprite art (PNGs, not used directly in build)
 | 0x8000  | Sprite tiles (SPR_TILE_BASE) |
 
 ## Sprite Tile Allocation
-- Tiles 0-3: Player (green)
-- Tiles 4-7: Enemy (magenta)
-- Tile 8: Bullet (yellow)
+- Tiles 0-3: Player (16x16 saucer)
+- Tiles 4-7: Enemy (16x16 bio-bomb)
+- Tile 8: Bullet (8x8 torpedo)
+
+## Sprite Palette Allocation
+Each sprite type has its own 16-color palette to avoid conflicts:
+| Palette | CGRAM Entry | Sprite Type | Key Colors |
+|---------|-------------|-------------|------------|
+| 0 | 128-143 | Player | white, gray, cyan, dark |
+| 1 | 144-159 | Enemy | green, white, magenta, dark |
+| 2 | 160-175 | Bullet | yellow, white, dark |
+
+When adding new sprite types, allocate the next available palette (3-7).
 
 ## Key Constants
 - Screen: 256x224 pixels
