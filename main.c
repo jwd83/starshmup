@@ -181,8 +181,8 @@ static void reset_player(s16* px, s16* py) {
 // Hide all sprites (used during title/gameover screens)
 static void hide_all_sprites(void) {
     u8 i;
-    // Player uses 4 sprites, enemy 1, bullets 8 => 13 total
-    for (i = 0; i < 13; i++) {
+    // Player 4 + enemy 4 + bullets 8 => 16 total
+    for (i = 0; i < 16; i++) {
         oamSetEx(i * 4, OBJ_SMALL, OBJ_HIDE);
     }
 }
@@ -367,10 +367,11 @@ int main(void) {
                     }
                 }
 
-                // Player-enemy collision: game over
-                dx = iabs_s16((player_x + PLAYER_SIZE / 2) - enemy_cx);
-                dy = iabs_s16((player_y + PLAYER_SIZE / 2) - enemy_cy);
-                if (dx < PLAYER_COLLISION_RADIUS && dy < PLAYER_COLLISION_RADIUS) {
+                // Player-enemy collision: game over (contact / overlap)
+                if (player_x < (enemy_x + ENEMY_SIZE) &&
+                    (player_x + PLAYER_SIZE) > enemy_x &&
+                    player_y < (enemy_y + ENEMY_SIZE) &&
+                    (player_y + PLAYER_SIZE) > enemy_y) {
                     // Transition to game over
                     stats.kills = kills;
                     stats.level = level;
@@ -397,13 +398,19 @@ int main(void) {
                 oamSetEx(8,  OBJ_SMALL, OBJ_SHOW);
                 oamSetEx(12, OBJ_SMALL, OBJ_SHOW);
 
-                // Draw enemy (OAM slot 4, tiles 4-7, 16x16)
-                oamSet(16, enemy_x, enemy_y, 2, 0, 0, 4, 0);
-                oamSetEx(16, OBJ_LARGE, OBJ_SHOW);
+                // Draw enemy metasprite (4x 8x8 => 16x16, tiles 4-7)
+                oamSet(16, enemy_x,      enemy_y,      2, 0, 0, 4, 0);
+                oamSet(20, enemy_x + 8,  enemy_y,      2, 0, 0, 5, 0);
+                oamSet(24, enemy_x,      enemy_y + 8,  2, 0, 0, 6, 0);
+                oamSet(28, enemy_x + 8,  enemy_y + 8,  2, 0, 0, 7, 0);
+                oamSetEx(16, OBJ_SMALL, OBJ_SHOW);
+                oamSetEx(20, OBJ_SMALL, OBJ_SHOW);
+                oamSetEx(24, OBJ_SMALL, OBJ_SHOW);
+                oamSetEx(28, OBJ_SMALL, OBJ_SHOW);
 
-                // Draw bullets (OAM slots 5-12, tile 8, 8x8)
+                // Draw bullets (OAM slots 8-15, tile 8, 8x8)
                 for (i = 0; i < MAX_BULLETS; i++) {
-                    obj = (5 + i) * 4;
+                    obj = (8 + i) * 4;
                     if (bullets[i].active) {
                         oamSet(obj, bullets[i].x, bullets[i].y, 2, 0, 0, 8, 0);
                         oamSetEx(obj, OBJ_SMALL, OBJ_SHOW);
