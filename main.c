@@ -2,6 +2,7 @@
 
 #include "gfx.h"
 #include "scenes.h"
+#include "sfx.h"
 
 // Font from data.asm
 extern char tilfont, palfont;
@@ -229,6 +230,7 @@ int main(void) {
     Scene next_scene;
     GameStats stats;
 
+    sfx_init();
     consoleInit();
 
     // Initialize text system (BG1) - tiles at 0x3000, map at 0x6800
@@ -274,6 +276,7 @@ int main(void) {
                 if ((pad & KEY_START) && !(prev_pad & KEY_START)) {
                     next_scene = scene_title_update(pad);
                     if (next_scene == SCENE_GAMEPLAY) {
+                        sfx_ui_confirm();
                         // Initialize gameplay
                         reset_gameplay(&player_x, &player_y, &enemy_x, &enemy_y,
                                        bullets, &kills, &level, &enemy_hp);
@@ -321,6 +324,7 @@ int main(void) {
                             bullets[i].y = player_y + (PLAYER_SIZE / 2) - (BULLET_SIZE / 2);
                             bullets[i].vx = aim_dx * BULLET_SPEED;
                             bullets[i].vy = aim_dy * BULLET_SPEED;
+                            sfx_shot();
                             break;
                         }
                     }
@@ -360,14 +364,23 @@ int main(void) {
                     dx = iabs_s16(bullet_cx - enemy_cx);
                     dy = iabs_s16(bullet_cy - enemy_cy);
                     if (dx < BULLET_COLLISION_RADIUS && dy < BULLET_COLLISION_RADIUS) {
+                        u16 old_level;
+
                         bullets[i].active = 0;
+                        old_level = level;
                         enemy_hp--;
                         if (enemy_hp == 0) {
+                            sfx_enemy_down();
                             kills++;
                             // Level up every 10 kills
                             level = 1 + (kills / 10);
+                            if (level > old_level) {
+                                sfx_level_up();
+                            }
                             spawn_enemy(&enemy_x, &enemy_y);
                             enemy_hp = level;
+                        } else {
+                            sfx_enemy_hit();
                         }
                         break;
                     }
@@ -379,6 +392,7 @@ int main(void) {
                     player_y < (enemy_y + ENEMY_SIZE) &&
                     (player_y + PLAYER_SIZE) > enemy_y) {
                     // Transition to game over
+                    sfx_player_down();
                     stats.kills = kills;
                     stats.level = level;
                     hide_all_sprites();
@@ -447,6 +461,7 @@ int main(void) {
                 if ((pad & KEY_START) && !(prev_pad & KEY_START)) {
                     next_scene = scene_gameover_update(pad);
                     if (next_scene == SCENE_TITLE) {
+                        sfx_ui_confirm();
                         scene_title_enter();
                         current_scene = SCENE_TITLE;
                     }
@@ -458,6 +473,7 @@ int main(void) {
                 break;
         }
 
+        sfx_process();
         WaitForVBlank();
 
         // Apply scroll during VBlank to avoid tearing
